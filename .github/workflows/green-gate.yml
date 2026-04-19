@@ -1,0 +1,180 @@
+# .github/workflows/green-gate.yml
+# ─────────────────────────────────────────────────────────────────────────
+# EcoTrack Green Gate — Required CI/CD Check
+# ─────────────────────────────────────────────────────────────────────────
+# This workflow runs on every push and pull request.
+# It trains the model (or re-uses a cached artefact), tracks carbon
+# emissions via CodeCarbon, then evaluates the Green Gate.
+#
+# Gate outcomes
+#   ✅ PASS  — merge allowed
+#   ⚠️  WARN  — merge allowed, comment posted on PR
+#   ❌ FAIL  — merge BLOCKED until the team optimises the run
+#
+# Required secrets  (Settings → Secrets → Actions)
+#   CO2SIGNAL_API_KEY      — free at co2signal.com (30 req/hr)
+#   ELECTRICITY_MAPS_KEY   — optional paid tier for higher accuracy
+#
+# Required variables (Settings → Variables → Actions)
+#   ECOTRACK_REGION        — e.g. IN-SO (default), DE, FR, US-CA
+# ─────────────────────────────────────────────────────────────────────────
+
+name: 🌿 EcoTrack Green Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# Cancel in-progress runs on new push to same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  green-gate:
+    name: Carbon Ethics Check
+    runs-on: ubuntu-latest          # swap for self-hosted GPU runner if available
+
+    # Make gate a required check — go to Branch Protection Rules and add
+    # "Carbon Ethics Check" as a required status check.
+    permissions:
+      contents: read
+      pull-requests: write          # allows posting PR comment with verdict
+
+    env:
+      CO2SIGNAL_API_KEY:      ${{ secrets.CO2SIGNAL_API_KEY }}
+      ELECTRICITY_MAPS_KEY:   ${{ secrets.ELECTRICITY_MAPS_KEY }}
+      ECOTRACK_REGION:        ${{ vars.ECOTRACK_REGION || 'IN-SO' }}
+      ECOTRACK_EMISSIONS_DIR: ./emissions
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2            # need HEAD and HEAD~1 for delta comparison
+
+      # ── 2. Python setup ────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 3. Restore previous emissions artefact ─────────────────────────
+      # We cache the latest run JSON so check_gate.py can compute deltas.
+      - name: Restore previous emissions run
+        uses: actions/cache/restore@v4
+        id: prev-emissions
+        with:
+          path: ./emissions/
+          key: emissions-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            emissions-${{ github.ref_name }}-
+            emissions-main-
+
+      # ── 4. Train + track ───────────────────────────────────────────────
+      # Replace `python train.py` with your actual training entry point.
+      # The training script must use tracker_utils.py (decorator or context
+      # manager) so it writes a run_*.json file to ./emissions/.
+      - name: Train model + track emissions
+        run: |
+          mkdir -p ./emissions
+          python train.py \
+            --epochs 50 \
+            --batch-size 32 \
+            --output-dir ./checkpoints
+        env:
+          CUDA_VISIBLE_DEVICES: "0"   # set -1 for CPU-only on hosted runners
+
+      # ── 5. Green Gate evaluation ───────────────────────────────────────
+      - name: 🌿 Evaluate Green Gate
+        id: gate
+        run: |
+          python check_gate.py \
+            --dir ./emissions \
+            --github-summary \
+            --json-out \
+            --no-color
+        # Exit codes: 0=PASS, 1=FAIL, 2=WARN
+        # Step fails (blocking merge) on exit code 1.
+        # Exit code 2 (WARN) is treated as success to allow merge with warning.
+        continue-on-error: true      # we handle exit codes manually below
+
+      # ── 6. Parse gate result ───────────────────────────────────────────
+      - name: Parse gate exit code
+        id: gate-result
+        run: |
+          EXIT=${{ steps.gate.outputs.exit-code || steps.gate.outcome == 'failure' && '1' || '0' }}
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          if [ "$EXIT" = "1" ]; then
+            echo "status=FAIL" >> $GITHUB_OUTPUT
+            echo "label=❌ Carbon Gate FAILED — merge blocked" >> $GITHUB_OUTPUT
+          elif [ "$EXIT" = "2" ]; then
+            echo "status=WARN" >> $GITHUB_OUTPUT
+            echo "label=⚠️ Carbon Gate WARNING — review emissions" >> $GITHUB_OUTPUT
+          else
+            echo "status=PASS" >> $GITHUB_OUTPUT
+            echo "label=✅ Carbon Gate PASSED" >> $GITHUB_OUTPUT
+          fi
+
+      # ── 7. Post PR comment ─────────────────────────────────────────────
+      - name: Post gate verdict as PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.gate-result.outputs.status }}';
+            const icons  = { PASS: '✅', WARN: '⚠️', FAIL: '❌' };
+            const colors = { PASS: '🟢', WARN: '🟡', FAIL: '🔴' };
+            const body = [
+              `## ${icons[status]} EcoTrack Green Gate — ${status}`,
+              '',
+              `${colors[status]} **${{ steps.gate-result.outputs.label }}**`,
+              '',
+              '> Full emissions report is in the [Actions summary](' +
+                `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).`,
+              '',
+              status === 'FAIL'
+                ? '⛔ This PR cannot be merged until the carbon-to-accuracy ratio is optimised. See suggestions in the summary above.'
+                : status === 'WARN'
+                ? '⚠️ This model has a high carbon footprint. Please review the efficiency suggestions before merging.'
+                : '🌿 Great work! This model meets EcoTrack\'s carbon efficiency standards.',
+            ].join('\n');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      # ── 8. Upload emissions artefacts ──────────────────────────────────
+      - name: Upload emissions JSON artefacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ecotrack-emissions-${{ github.sha }}
+          path: ./emissions/
+          retention-days: 90
+
+      # ── 9. Cache emissions for next run (delta comparison) ─────────────
+      - name: Cache emissions for delta comparison
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ./emissions/
+          key: emissions-${{ github.ref_name }}-${{ github.sha }}
+
+      # ── 10. Fail the job if gate said FAIL ────────────────────────────
+      - name: Enforce gate decision
+        if: steps.gate-result.outputs.status == 'FAIL'
+        run: |
+          echo "❌ Green Gate FAILED. Merge is blocked. See the emissions report above."
+          exit 1

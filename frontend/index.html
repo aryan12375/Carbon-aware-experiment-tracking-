@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>EcoTrack — Green MLOps</title>
+  </head>
+  <body class="bg-stone-50 text-stone-900 font-sans">
+    <div id="app">
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="logo-box">
+            <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.5 8 9.2a7 7 0 0 1-16 8.8Z"/><path d="M17 16h5"/><path d="M19 19h-2"/></svg>
+            <span>EcoTrack</span>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="#dashboard" class="nav-item active" data-page="dashboard">
+            <i data-lucide="layout-dashboard"></i> Dashboard
+          </a>
+          <a href="#pre-flight" class="nav-item" data-page="pre-flight">
+            <i data-lucide="calculator"></i> Pre-flight Estimator
+          </a>
+          <a href="#frontier" class="nav-item" data-page="frontier">
+            <i data-lucide="trending-up"></i> Efficiency Frontier
+          </a>
+          <a href="#gpu-compare" class="nav-item" data-page="gpu-compare">
+            <i data-lucide="cpu"></i> GPU Comparison
+          </a>
+          <a href="#scheduler" class="nav-item" data-page="scheduler">
+            <i data-lucide="calendar-clock"></i> Smart Scheduler
+          </a>
+          <a href="#green-gate" class="nav-item" data-page="green-gate">
+            <i data-lucide="shield-check"></i> Green Gate CI
+          </a>
+          <a href="#run-history" class="nav-item" data-page="run-history">
+            <i data-lucide="history"></i> Run History
+          </a>
+
+          <div style="margin: 8px 12px; height: 1px; background: var(--warm-stone-dark)"></div>
+
+          <a href="#nutrition-label" class="nav-item" data-page="nutrition-label">
+            <i data-lucide="tag"></i> Nutrition Label
+          </a>
+          <a href="#quant-gate" class="nav-item" data-page="quant-gate">
+            <i data-lucide="zap"></i> Quant Gate
+          </a>
+          <a href="#matchmaker" class="nav-item" data-page="matchmaker">
+            <i data-lucide="git-merge"></i> TL Matchmaker
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="carbon-meter">
+            <span class="label">Total Carbon Offset</span>
+            <div class="meter-bar">
+              <div class="meter-fill" style="width: 65%"></div>
+            </div>
+            <span class="value">14.2 kg CO₂e</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left">
+            <h1 id="page-title">Dashboard</h1>
+            <p id="page-subtitle">Real-time carbon footprint of your ML experiments.</p>
+          </div>
+          <div class="header-right">
+            <button class="btn btn-pill">
+              <i data-lucide="plus"></i> New Project
+            </button>
+            <div class="user-profile">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Aryan" alt="Avatar" />
+            </div>
+          </div>
+        </header>
+
+        <section id="content-mount" class="page-container">
+          <!-- Page content will be injected here -->
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

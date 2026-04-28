@@ -29,7 +29,7 @@ Prevents compute waste by suggesting fine-tuning over training from scratch.
 
 ---
 
-## 🛠️ Project Structure
+## 🛠️ Project  Structure
 
 ```
 Carbon-aware-experiment-tracking/

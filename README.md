@@ -70,6 +70,27 @@ npm run dev
 
 ---
 
+## Tests
+
+From the repository root, with the backend environment activated, run:
+
+```bash
+cd backend
+python -m pytest test_api.py -v
+cd ..
+python -m pytest tracker/test_gate.py -v
+```
+
+## Green Gate CI
+
+The workflow in `.github/workflows/green-gate.yml` expects an Actions repository
+variable named `ECOTRACK_TRAIN_COMMAND`. Set it to the project-specific training
+command that uses `tracker/tracker_utils.py` and writes `emissions/run_*.json`.
+The CO2Signal and Electricity Maps secrets remain optional because the tracker has
+an offline fallback.
+
+---
+
 ## 📊 Compliance Standards
 EcoTrack is built to satisfy international sustainability disclosure requirements:
 - **Scope 2 Reporting**: Indirect emissions from purchased electricity for compute.
@@ -81,4 +102,5 @@ EcoTrack is built to satisfy international sustainability disclosure requirement
 ## 👨‍💻 Developer
 **Aryan** ([@aryan12375](https://github.com/aryan12375))
 MIT Manipal, Karnataka
-MIT Licensed
+
+No license file is included in this repository copy.

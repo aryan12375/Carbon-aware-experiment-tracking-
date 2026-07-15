@@ -5,8 +5,8 @@ EcoTrack FastAPI test suite.
 Uses an in-memory SQLite database so tests are fully isolated.
 
 Run with:
-    pytest tests/test_api.py -v
-    pytest tests/test_api.py -v --cov=app --cov-report=term-missing
+    pytest test_api.py -v
+    pytest test_api.py -v --cov=app --cov-report=term-missing
 """
 
 from __future__ import annotations

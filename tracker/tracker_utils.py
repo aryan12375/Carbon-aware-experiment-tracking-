@@ -325,12 +325,14 @@ class EcoTracker:
 
         self._tracker: Optional[Any] = None   # CodeCarbon instance
         self._start_time: float = 0.0
+        self._started_at: Optional[datetime] = None
         self.result: Optional[EmissionsResult] = None
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def start(self) -> "EcoTracker":
         log.info(f"Starting EcoTrack → project='{self.project_name}' model='{self.model_name}'")
+        self._started_at = datetime.now(timezone.utc)
         self._start_time = time.perf_counter()
 
         if _CODECARBON_AVAILABLE:
@@ -394,9 +396,7 @@ class EcoTracker:
             project_name=self.project_name,
             model_name=self.model_name,
             commit_id=_get_commit_id(),
-            started_at=datetime.fromtimestamp(
-                self._start_time, tz=timezone.utc
-            ).isoformat(),
+            started_at=(self._started_at or datetime.now(timezone.utc)).isoformat(),
             finished_at=now_utc,
             duration_seconds=round(elapsed, 2),
             co2_grams=round(co2_grams, 4),
@@ -717,4 +717,3 @@ class GreenPauseContext:
             "threshold_g_kwh": self.threshold,
             "region": self.region,
         }
-

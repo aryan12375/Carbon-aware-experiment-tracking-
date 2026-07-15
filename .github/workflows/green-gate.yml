@@ -48,6 +48,9 @@ jobs:
       ELECTRICITY_MAPS_KEY:   ${{ secrets.ELECTRICITY_MAPS_KEY }}
       ECOTRACK_REGION:        ${{ vars.ECOTRACK_REGION || 'IN-SO' }}
       ECOTRACK_EMISSIONS_DIR: ./emissions
+      # Repository variable: a project-specific command that writes
+      # emissions/run_*.json through tracker/tracker_utils.py.
+      ECOTRACK_TRAIN_COMMAND: ${{ vars.ECOTRACK_TRAIN_COMMAND }}
 
     steps:
       # ── 1. Checkout ────────────────────────────────────────────────────
@@ -66,7 +69,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
 
       # ── 3. Restore previous emissions artefact ─────────────────────────
       # We cache the latest run JSON so check_gate.py can compute deltas.
@@ -81,16 +84,17 @@ jobs:
             emissions-main-
 
       # ── 4. Train + track ───────────────────────────────────────────────
-      # Replace `python train.py` with your actual training entry point.
-      # The training script must use tracker_utils.py (decorator or context
-      # manager) so it writes a run_*.json file to ./emissions/.
+      # Configure ECOTRACK_TRAIN_COMMAND in the repository's Actions variables.
+      # It must use tracker_utils.py to write run_*.json to ./emissions/.
       - name: Train model + track emissions
         run: |
           mkdir -p ./emissions
-          python train.py \
-            --epochs 50 \
-            --batch-size 32 \
-            --output-dir ./checkpoints
+          if [ -z "$ECOTRACK_TRAIN_COMMAND" ]; then
+            echo "ECOTRACK_TRAIN_COMMAND is not configured."
+            echo "Set it in Settings -> Secrets and variables -> Actions -> Variables."
+            exit 1
+          fi
+          bash -lc "$ECOTRACK_TRAIN_COMMAND"
         env:
           CUDA_VISIBLE_DEVICES: "0"   # set -1 for CPU-only on hosted runners
 
@@ -98,21 +102,24 @@ jobs:
       - name: 🌿 Evaluate Green Gate
         id: gate
         run: |
-          python check_gate.py \
+          set +e
+          python tracker/check_gate.py \
             --dir ./emissions \
             --github-summary \
             --json-out \
             --no-color
+          EXIT=$?
+          set -e
+          echo "exit_code=$EXIT" >> "$GITHUB_OUTPUT"
         # Exit codes: 0=PASS, 1=FAIL, 2=WARN
-        # Step fails (blocking merge) on exit code 1.
-        # Exit code 2 (WARN) is treated as success to allow merge with warning.
-        continue-on-error: true      # we handle exit codes manually below
+        # Capture the code explicitly so WARN remains distinct from FAIL.
+        # The enforcement step below blocks only an actual FAIL.
 
       # ── 6. Parse gate result ───────────────────────────────────────────
       - name: Parse gate exit code
         id: gate-result
         run: |
-          EXIT=${{ steps.gate.outputs.exit-code || steps.gate.outcome == 'failure' && '1' || '0' }}
+          EXIT=${{ steps.gate.outputs.exit_code }}
           echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
           if [ "$EXIT" = "1" ]; then
             echo "status=FAIL" >> $GITHUB_OUTPUT

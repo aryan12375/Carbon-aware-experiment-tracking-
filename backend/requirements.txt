@@ -24,10 +24,10 @@ reportlab>=4.1.0             # AI Nutrition Label PDF generation (Feature 2)
 
 # ── Testing ───────────────────────────────────────────────────────────────
 pytest>=8.2.0
+pytest-asyncio>=0.23.0          # async fixtures/tests in test_api.py
 pytest-cov>=5.0.0
 httpx>=0.27.0                # async test client for FastAPI
 
 # ── Dev / linting ─────────────────────────────────────────────────────────
 ruff>=0.4.0
 black>=24.4.0
-
